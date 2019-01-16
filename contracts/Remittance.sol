@@ -52,9 +52,10 @@ contract Remittance {
     
     //Allow for deposits of Ether to be made to the contract
     function deposit() payable public onlyOwner onlyIfRunning{
-        //Create logs
+        //Set variables that will be used in withdraw functions
         timeOfDeposit = now;
         amount = address(this).balance;
+        //Create logs
         emit LogDeposit (msg.sender, msg.value, timeOfDeposit);
     }
     
