@@ -1,60 +1,25 @@
 pragma solidity 0.4.24;
 
-contract Remittance {
-    
+import "./Stoppable.sol";
+
+contract Remittance is Stoppable {
+
     //Global Variables
-    address public owner;
-    bytes32 hash;
-    uint256 amount;
-    RemittanceState public state;
     uint256 timeOfDeposit;
-    uint256 expiredTime;
-    
-    //Constructor, setting initial properties
-    constructor() public {
-        owner = msg.sender;
-        state = RemittanceState.Operational;
-    }
-    
-    //Modifiers
-    modifier onlyOwner {
-        require(msg.sender == owner, "Only owner can perform this action");
-        _;
-    }
-    
-    modifier onlyIfRunning {
-        require(state == RemittanceState.Operational, "The contract is not operational");
-        _;
-    }
-    
-    //Defining the possible states of the contract
-    enum RemittanceState {
-        Operational,
-        Paused,
-        Deactivated
-    }
-    
+    bytes32 hashPasswordShop;
+    bytes32 hashPasswordBeneficiary;
+    uint256 constant expirePeriod = 1 weeks;
+
     //All events to be logged
     event LogDeposit(address sender, uint amount, uint time);
     event LogWithdrawFunds (address sender, uint amount);
-    event LogSetState(RemittanceState newState);
     event LogOwnerWithdraws(address sender, uint amount, uint time);
     
-    //Change the state of the contract
-    function setState(RemittanceState newState) public onlyOwner {
-        //Verify if the state is Deactivated, if so, don't allow update to the state
-        require(state != RemittanceState.Deactivated, "The contract is deactivated and can't be made operational or paused");
-        //Set the state of the Contract
-        state = newState;
-        //Create logs
-        emit LogSetState(newState);
-    }
-    
     //Allow for deposits of Ether to be made to the contract
-    function deposit() payable public onlyOwner onlyIfRunning{
-        //Set variables that will be used in withdraw functions
+    function deposit() payable public onlyOwner {
+        require(state == RemittanceState.Operational, "Contract is not operational");
+        //Set the time of deposit that will be used to calculate expiry
         timeOfDeposit = now;
-        amount = address(this).balance;
         //Create logs
         emit LogDeposit (msg.sender, msg.value, timeOfDeposit);
     }
@@ -64,37 +29,44 @@ contract Remittance {
         return address(this).balance; 
     }
     
-    //Calculate the hash of the two combined passwords
-    function calculateHash(uint256 a, uint b) private returns (bytes32) {
-        hash = (keccak256(abi.encodePacked(a + b)));
-        return hash;
-    }    
+    //Function that allows the passwords to be set
+    function setPassword(string passwordShop, string passwordBeneficiary) public onlyOwner returns (bytes32, bytes32) {
+        //Verify the contract is operational
+        require(state == RemittanceState.Operational, "Contract is not operational");
+        //Verify passwords have been entered
+        require(bytes(passwordShop).length > 5, "Enter a shop password of at least 6 six characters");
+        require(bytes(passwordBeneficiary).length > 5, "Enter a shop password of at least 6 six characters");
+        //Hash the passwords and save as global variables
+        hashPasswordShop = (keccak256(abi.encodePacked(passwordShop)));
+        hashPasswordBeneficiary = (keccak256(abi.encodePacked(passwordBeneficiary)));
+        return (hashPasswordShop, hashPasswordBeneficiary);
+    }
     
-    //Withdraw all funds from the contract if the hashed sum of the two passwords meets the expected hash
-    function withdrawFunds (uint256 a, uint256 b) public onlyIfRunning {
-        //Send the input from the withdrawFunds function to the calculateHash function
-        calculateHash(a, b);
-        //Verify that the hashed sum of the passwords is the solution
-        require(hash == 63806209331542711802848847270949280092855778197726125910674179583545433573378, "One or both passwords are incorrect");
-        //If the solution is correct, send the funds to the msg.sender
-        address(msg.sender).transfer(amount);
+    //Withdraw all funds from the contract if the entered passwords are correct
+    function withdrawFunds (string passwordShop, string passwordBeneficiary) public {
+        //Verify that both passwords are correct
+        bytes32 hashPasswordShopWithdraw = (keccak256(abi.encodePacked(passwordShop)));
+        bytes32 hashPasswordBeneficiaryWithdraw = (keccak256(abi.encodePacked(passwordBeneficiary)));
+        require(hashPasswordShopWithdraw == hashPasswordShop, "Incorrect shop password");
+        require(hashPasswordBeneficiaryWithdraw == hashPasswordBeneficiary, "Incorrect beneficiary password");
         //Create logs
-        emit LogWithdrawFunds (msg.sender, amount);
-        }
+        emit LogWithdrawFunds (msg.sender, address(this).balance);
+        //If the solution is correct, send the funds to the msg.sender
+        address(msg.sender).transfer(address(this).balance);
+    }
     
     //Allow owner to retrieve funds if not withdrawn after more than 1 week
-    function ownerWithdraws () public onlyOwner onlyIfRunning {
+    function ownerWithdraws () public onlyOwner {
         //Verify a week has gone by
-        expiredTime = timeOfDeposit + 1 weeks;
-        require(expiredTime < now, "Owner can only withdraw if more than one week has passed since deposit");
-        //Transfer contract funds back to owner
-        address(msg.sender).transfer(amount);
+        uint256 expiry = timeOfDeposit + expirePeriod;
+        require(expiry < now, "Owner can only withdraw if more than one week has passed since deposit");
         //Create logs
-        emit LogOwnerWithdraws (msg.sender, amount, now);
+        emit LogOwnerWithdraws (msg.sender, address(this).balance, now);
+        //Transfer contract funds back to owner
+        address(msg.sender).transfer(address(this).balance);
     }
     
     //Fallback function which rejects funds sent to the contract address if sender is not the owner
     function() public { revert(); 
     }    
 }
-     
