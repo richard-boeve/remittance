@@ -22,6 +22,17 @@ contract Stoppable is Owned {
     //Event logs for when a state changes
     event LogSetState(address indexed sender, RemittanceState indexed newState);
     
+    //Modifiers
+    modifier onlyIfRunning {
+        require(state == RemittanceState.Operational, "The contract is not operational");
+        _;
+    }
+    
+    modifier onlyIfNotPaused {
+        require(state != RemittanceState.Paused, "The contract is paused and can't be interacted with");
+        _;
+    }
+    
     //Function that allows owner to change the state of the contract
     function setState(RemittanceState newState) public onlyOwner {
         //Verify if the state is Deactivated, if so, don't allow update to the state;
