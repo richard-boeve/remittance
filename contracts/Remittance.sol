@@ -6,24 +6,30 @@ contract Remittance is Stoppable {
 
     //State Variables
     uint256 timeOfDeposit;
-    bytes32 hashedShopPassword;
-    bytes32 hashedBenificiaryPassword;
+    bytes32 hashedPassword;
     uint256 expirePeriodInSeconds;
+    uint256 constant maxExpiryInSeconds = 604800;
 
     //All events to be logged
     event LogDeposit(address indexed sender, uint indexed amount, uint indexed time, uint expirePeriodinSeconds);
     event LogWithdrawFunds (address indexed sender, uint indexed amount);
     event LogOwnerWithdraws(address indexed sender, uint indexed amount, uint indexed time);
+
+    //Mapping of hash to boolean
+    mapping(bytes32 => bool) public wasUsedBefore;
     
     //Allow for deposits of Ether to be made to the contract
-    function deposit(bytes32 _hashedShopPassword, bytes32 _hashedBenificiaryPassword, uint256 _expirePeriodInSeconds) payable public onlyOwner onlyIfRunning {
+    function deposit(bytes32 _hashedPassword, uint256 _expirePeriodInSeconds) payable public onlyOwner onlyIfRunning {
         //Verify that the expiry (deadline) is not more than 7 days from now
-        require(expirePeriodInSeconds <= 604800, "Deadline can't be out further than 7 days");
+        require(expirePeriodInSeconds <= maxExpiryInSeconds, "Deadline can't be out further than 7 days");
+        //Verify that the hashed password hasn't been used before
+        require(wasUsedBefore[_hashedPassword] == false, "Password has been used before");
         //Set the time of deposit that will be used to calculate expiry
         timeOfDeposit = now;
         //Write hashed password to state
-        hashedShopPassword = _hashedShopPassword;
-        hashedBenificiaryPassword = _hashedBenificiaryPassword;
+        hashedPassword = _hashedPassword;
+        //Set the password as being used
+        wasUsedBefore[_hashedPassword] = true;
         //Write deadline period to state
         expirePeriodInSeconds = _expirePeriodInSeconds;
         //Create logs
@@ -36,28 +42,19 @@ contract Remittance is Stoppable {
     }
     
     //Function that allows the passwords to be set - Off chain
-    function setPassword(string passwordShop, string passwordBeneficiary) view public onlyOwner onlyIfRunning returns (bytes32, bytes32) {
-        //Verify passwords have been entered
-        require(bytes(passwordShop).length > 5, "Enter a shop password of between 6 and 10 characters");
-        require(bytes(passwordShop).length <= 10, "Enter a shop password of between 6 and 10 characters");
-        require(bytes(passwordBeneficiary).length > 5, "Enter a beneficiary password of between 6 and 10 characters");
-        require(bytes(passwordBeneficiary).length <= 10, "Enter a beneficiary password of between 6 and 10 characters");
-        //Hash the passwords and save as state variables
-        bytes32 hashPasswordShop = (keccak256(abi.encodePacked(passwordShop)));
-        bytes32 hashPasswordBeneficiary = (keccak256(abi.encodePacked(passwordBeneficiary)));
-        return (hashPasswordShop, hashPasswordBeneficiary);
+    function generateHashedPassword(bytes32 plainPasswordShop, bytes32 plainPasswordBeneficiary) pure public returns (bytes32) {
+        //Hash the passwords
+        return keccak256(abi.encodePacked(plainPasswordShop, plainPasswordBeneficiary));
     }
     
     //Withdraw all funds from the contract if the entered passwords are correct
-    function withdrawFunds (string passwordShop, string passwordBeneficiary) public onlyIfNotPaused {
+    function withdrawFunds (bytes32 plainPasswordShop, bytes32 plainPasswordBeneficiary) public onlyIfNotPaused {
         //Verify that it is not past the deadline yet
         uint256 expiry = timeOfDeposit + expirePeriodInSeconds;
         require(expiry >= now, "Deadline has passed, you can no longer withdraw funds");
         //Verify that both passwords are correct
-        bytes32 hashPasswordShopWithdraw = (keccak256(abi.encodePacked(passwordShop)));
-        bytes32 hashPasswordBeneficiaryWithdraw = (keccak256(abi.encodePacked(passwordBeneficiary)));
-        require(hashPasswordShopWithdraw == hashedShopPassword, "Incorrect shop password");
-        require(hashPasswordBeneficiaryWithdraw == hashPasswordBeneficiaryWithdraw, "Incorrect beneficiary password");
+        bytes32 hashPasswordWithdraw = keccak256(abi.encodePacked(plainPasswordShop, plainPasswordBeneficiary));
+        require(hashPasswordWithdraw == hashedPassword, "Incorrect password");
         //Create logs
         emit LogWithdrawFunds (msg.sender, address(this).balance);
         //If the solution is correct, send the funds to the msg.sender
