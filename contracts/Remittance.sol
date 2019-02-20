@@ -18,8 +18,7 @@ contract Remittance is Stoppable {
     
     //Struct that contains the users of the contract
     struct Deposit {
-        address addressSender;
-        uint256 benificiaryID;
+        address depositor;
         uint256 expiry;
         uint256 amount;
     }
@@ -31,26 +30,24 @@ contract Remittance is Stoppable {
     mapping(bytes32 => bool) public wasUsedBefore;
     
     //Allow for deposits of Ether to be made. Deposists will be stored against a unique hash. 
-    function deposit(address _shopAddress, bytes32 _hashedPassword, uint256 _expirePeriodInSeconds) payable public onlyIfRunning {
-        //Verify that the message value is > 0 
-        require(msg.value > 0, "You can't deposit 0 or less");
+    function deposit (bytes32 _hashedPassword, uint256 _expirePeriodInSeconds) payable public onlyIfRunning {
+        //Verify that the message value is higher than the fee 
+        require(msg.value > fee, "Fee is higher than deposit");
         //Verify that an expiry period is entered 
         require(_expirePeriodInSeconds != 0, "Expiry period in seconds is mandatory");
-        //Verify that the expiry (deadline) is not more than 7 days from now
-        require(_expirePeriodInSeconds <= maxExpiryInSeconds, "Deadline can't be out further than 7 days");
-        //Create a hash against which the deposit can be stored
-        bytes32 storageHash = keccak256(abi.encodePacked(this, _shopAddress, _hashedPassword));
+        //Verify that the deadline does not exceed the maximum expiry
+        require(_expirePeriodInSeconds <= maxExpiryInSeconds, "Deadline exceeds the maximum expiry");
         //Verify that the storage hash hasn't been used before
-        require(!wasUsedBefore[storageHash], "Password / Shop combination has been used before");
+        require(!wasUsedBefore[_hashedPassword], "Password / Shop combination has been used before");
         //Set the storageHash as being used
-        wasUsedBefore[storageHash] = true;
+        wasUsedBefore[_hashedPassword] = true;
         //Take a fee out of the msg.value 
         uint256 amount = msg.value - fee;
         //Set expiry
         uint256 expiry = _expirePeriodInSeconds + now;
         //Write the arguments to storage
-        Deposit storage currentDeposit = deposits[storageHash];
-        currentDeposit.addressSender = msg.sender;
+        Deposit storage currentDeposit = deposits[_hashedPassword];
+        currentDeposit.depositor = msg.sender;
         currentDeposit.expiry = expiry;
         currentDeposit.amount = amount;
         //Create log for fee payment
@@ -67,35 +64,36 @@ contract Remittance is Stoppable {
     }
     
     //Function that allows the passwords to be set - Off chain
-    function generateHashedPassword(bytes32 plainPasswordBeneficiary) pure public returns (bytes32) {
-        //Hash the passwords
-        return keccak256(abi.encodePacked(plainPasswordBeneficiary));
+    function generateHashedPassword(address _shopAddress, bytes32 _plainPasswordBeneficiary) view public returns (bytes32) {
+        //Verify that the shop address can't be null
+        require(_shopAddress != 0, "Shop address is mandatory");
+        //Verify that the password can't be null
+        require(_plainPasswordBeneficiary != 0, "Benificiary password is mandatory");
+        //Hash it all
+        return keccak256(abi.encodePacked(this, _shopAddress, _plainPasswordBeneficiary));
     }
     
     //Withdraw all funds that the depositor has deposited for the benificiary. 
     function withdrawFunds (bytes32 _plainPasswordBeneficiary) public onlyIfNotPaused {
-        //Calculate the storageHash
-        bytes32 storageHash = keccak256(abi.encodePacked(this, msg.sender, keccak256(abi.encodePacked(_plainPasswordBeneficiary))));
+        //Calculate the hashed password
+        bytes32 hashedPassword = generateHashedPassword(msg.sender, _plainPasswordBeneficiary);
         //Write storage record to memory for re-usage
-        Deposit memory depositMem = deposits[storageHash];
+        uint256 depositAmount = deposits[hashedPassword].amount;
+        address depositSender = deposits[hashedPassword].depositor;
         //Verify that the storage hash represents an outstanding deposit
-        require(depositMem.addressSender != address(0), "One or more of the following are incorrect: password benificiary, password shop");
+        require(depositSender != address(0), "There is no deposit stored for this password / shop combination");
         //Create log
-        emit LogWithdrawFunds (msg.sender, depositMem.amount);
+        emit LogWithdrawFunds (msg.sender, depositAmount);
         //transfer the funds to the msg.sender so he/she can pay out to the benificiary
-        address(msg.sender).transfer(depositMem.amount);
+        address(msg.sender).transfer(depositAmount);
     }
     
-    // //Allow depositor to retrieve funds if not withdrawn by benifiary after the withdrawal expiry period has passed
-    function depositorWithdraws (address _shopAddress, bytes32 _benificiaryPasswordHash) public onlyIfNotPaused {
-        //Calculate the storageHash
-        bytes32 storageHash = keccak256(abi.encodePacked(this, _shopAddress, _benificiaryPasswordHash));
+    //Allow depositor to retrieve funds if not withdrawn by benifiary after the withdrawal expiry period has passed
+    function depositorWithdraws (bytes32 _hashedPassword) public onlyIfNotPaused {
         //Write storage record to memory for re-usage
-        Deposit memory depositMem = deposits[storageHash];
-        //Verify that the storage hash represents an outstanding deposit
-        require(depositMem.addressSender != address(0), "One or more of the following are incorrect: password benificiary, password shop");
+        Deposit memory depositMem = deposits[_hashedPassword];
         //Verify that the msg.sender is the depositor
-        require(depositMem.addressSender == msg.sender, "Only the depositor can retrieve unclaimed deposits");
+        require(depositMem.depositor == msg.sender, "Only the depositor can retrieve unclaimed deposits");
         //Verify that it is past the deadline
         require(depositMem.expiry < now, "Owner can only withdraw when the deadline has passed");
         //Create log

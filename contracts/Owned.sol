@@ -3,7 +3,7 @@ pragma solidity 0.4.24;
 contract Owned {
     
     //Global variables
-    address owner;
+    address private owner;
     
     //Constructor, setting the owner upon contract creation
     constructor() public {
