@@ -38,9 +38,7 @@ contract Remittance is Stoppable {
         //Verify that the deadline does not exceed the maximum expiry
         require(_expirePeriodInSeconds <= maxExpiryInSeconds, "Deadline exceeds the maximum expiry");
         //Verify that the storage hash hasn't been used before
-        require(!wasUsedBefore[_hashedPassword], "Password / Shop combination has been used before");
-        //Set the storageHash as being used
-        wasUsedBefore[_hashedPassword] = true;
+        require(deposits[_hashedPassword].depositor == address(0), "Password / Shop combination has been used before");
         //Take a fee out of the msg.value 
         uint256 amount = msg.value - fee;
         //Set expiry
@@ -82,6 +80,10 @@ contract Remittance is Stoppable {
         address depositSender = deposits[hashedPassword].depositor;
         //Verify that the storage hash represents an outstanding deposit
         require(depositSender != address(0), "There is no deposit stored for this password / shop combination");
+        //Verify that stored deposit amount is larger than zero
+        require(depositAmount > 0, "There is no balance to withdraw");
+        //Set amount to zero
+        deposits[hashedPassword].amount = 0;
         //Create log
         emit LogWithdrawFunds (msg.sender, depositAmount);
         //transfer the funds to the msg.sender so he/she can pay out to the benificiary
@@ -96,6 +98,10 @@ contract Remittance is Stoppable {
         require(depositMem.depositor == msg.sender, "Only the depositor can retrieve unclaimed deposits");
         //Verify that it is past the deadline
         require(depositMem.expiry < now, "Owner can only withdraw when the deadline has passed");
+        //Verify that stored deposit amount is larger than zero
+        require(depositMem.amount > 0, "There is no balance to withdraw");
+        //Set amount to zero
+        deposits[_hashedPassword].amount = 0;
         //Create log
         emit LogDepositorWithdraws (msg.sender, depositMem.amount, now);
         //Transfer funds back to owner
