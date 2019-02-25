@@ -7,8 +7,7 @@ contract Remittance is Stoppable {
     //State Variables
     uint256 constant maxExpiryInSeconds = 604800;
     uint256 constant fee = 1000000;
-    uint256 feeBalance;
-
+    
     //All events to be logged
     event LogDeposit(address indexed sender, uint indexed amount, uint time, uint expiry);
     event LogFee(address indexed sender, uint time);
@@ -26,8 +25,8 @@ contract Remittance is Stoppable {
     //Mapping of deposits
     mapping(bytes32 => Deposit) public deposits;
     
-    //Mapping of hash to boolean
-    mapping(bytes32 => bool) public wasUsedBefore;
+    //Mapping of fees
+    mapping(address => uint256) public feeBalance;
     
     //Allow for deposits of Ether to be made. Deposists will be stored against a unique hash. 
     function deposit (bytes32 _hashedPassword, uint256 _expirePeriodInSeconds) payable public onlyIfRunning {
@@ -51,7 +50,8 @@ contract Remittance is Stoppable {
         //Create log for fee payment
         emit LogFee (msg.sender, now);
         //Increase the fee balance of the contract owner
-        feeBalance += fee;
+        address owner = getOwner();
+        feeBalance[owner] += fee;
         //Create log
         emit LogDeposit (msg.sender, msg.value, now, expiry);
     }
@@ -77,9 +77,6 @@ contract Remittance is Stoppable {
         bytes32 hashedPassword = generateHashedPassword(msg.sender, _plainPasswordBeneficiary);
         //Write storage record to memory for re-usage
         uint256 depositAmount = deposits[hashedPassword].amount;
-        address depositSender = deposits[hashedPassword].depositor;
-        //Verify that the storage hash represents an outstanding deposit
-        require(depositSender != address(0), "There is no deposit stored for this password / shop combination");
         //Verify that stored deposit amount is larger than zero
         require(depositAmount > 0, "There is no balance to withdraw");
         //Set amount to zero
@@ -108,16 +105,16 @@ contract Remittance is Stoppable {
         address(msg.sender).transfer(depositMem.amount);
     }
     
-    //Function that allows the owner to withdraw the collected fees
-    function ownerWithdrawsFees () public onlyIfNotPaused onlyOwner {
+    //Function that allows any user who is or has been an owner, to withdraw their collected fees
+    function ownerWithdrawsFees () public onlyIfNotPaused {
         //Verify there are fees to withdraw
-        require(feeBalance > 0, "There is no fee balance to withdraw");
+        require(feeBalance[msg.sender] > 0, "There is no fee balance to withdraw");
         //Set balance to 0 
-        uint feesToWithdraw = feeBalance;
-        feeBalance = 0;
+        uint feesToWithdraw = feeBalance[msg.sender];
+        feeBalance[msg.sender] = 0;
         //Create log
         emit LogOwnerWithdrawsFees (feesToWithdraw, now);
-        //Transer fees to owner
+        //Transer fees to msg.sender
         address(msg.sender).transfer(feesToWithdraw);
     }
-}
+  }
