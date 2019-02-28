@@ -4,7 +4,7 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "mocha"
   },
   "keywords": [],
   "author": "",
@@ -13,6 +13,9 @@
     "truffle": "^4.1.13"
   },
   "dependencies": {
-    "truffle-assertions": "^0.8.0"
+    "big-number": "^2.0.0",
+    "bluebird": "^3.5.3",
+    "truffle-assertions": "^0.8.0",
+    "truffle-cost": "^1.0.1"
   }
 }
