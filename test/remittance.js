@@ -22,10 +22,8 @@ contract('Remittance', (accounts) => {
       const hashedPassword = await remit.generateHashedPassword(shopAddress, plainPassword);  
       //Check starting balance owner
       const ownerStartingBalance = await remit.feeBalance(owner);
-      console.log(ownerStartingBalance.toString(10));
       //Check starting balance shop
       const shopStartingBalance = (await remit.deposits(hashedPassword))[2];
-      console.log(shopStartingBalance.toString(10));
       //Submit deposit transaction
       const depositTxReceipt= await remit.deposit(hashedPassword, EXPIRE_PERIOD, {from: depositor, value: depositAmount});
       //Checking the transaction event logs
@@ -47,7 +45,7 @@ contract('Remittance', (accounts) => {
     it("Withdraw - verify that a withdrawal can be made", async () => {
       //Create hashed password
       const hashedPassword = await remit.generateHashedPassword(shopAddress, plainPassword);
-      //Check starting balance shop
+      //Check starting balance shop blockchain
       const shopStartingBalance = await web3.eth.getBalance(shopAddress);
       //Submit transactions: Deposit and Withdraw
       const depositTxReceipt = await remit.deposit(hashedPassword, EXPIRE_PERIOD, {from: depositor, value: depositAmount});
@@ -60,8 +58,10 @@ contract('Remittance', (accounts) => {
       assert.equal(depositTxReceipt.logs[0].args.sender, depositor, "Fee has not been paid to owner");
       assert.strictEqual(depositTxReceipt.logs[1].args.amount.toString(10), depositAmount.toString(10), "The deposit wasn't successfull");
       assert.equal(withdrawTxReceipt.logs[0].args.amount.toString(10), +depositAmount - +FEE, "The withdrawn amount is incorrect" )
-      //Checking the shop balance
+      //Checking the shop balance blockchain
       assert.equal(+shopStartingBalance + +depositAmount - +FEE + -transCost, (await web3.eth.getBalance(shopAddress)).toString(10), "The shop balance is incorrect")
+      //Checking the shop balance contract
+      assert.equal(0, (await remit.deposits(hashedPassword))[2], "The withdrawal has not reset the balance of the shop to 0 in the contract" )
     })
 }) 
   
