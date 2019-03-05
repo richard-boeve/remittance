@@ -1,8 +1,12 @@
 pragma solidity 0.4.24;
 
 import "./Stoppable.sol";
+import "./SafeMath.sol";
 
 contract Remittance is Stoppable {
+
+    //Using the SafeMath library
+    using SafeMath for uint256;
 
     //State Variables
     uint256 constant maxExpiryInSeconds = 604800;
@@ -107,14 +111,16 @@ contract Remittance is Stoppable {
     
     //Function that allows any user who is or has been an owner, to withdraw their collected fees
     function ownerWithdrawsFees () public onlyIfNotPaused {
+        //write initial fee balance from sender to variable
+        uint256 initialFeeBalance = feeBalance[msg.sender];
         //Verify there are fees to withdraw
-        require(feeBalance[msg.sender] > 0, "There is no fee balance to withdraw");
+        require(initialFeeBalance > 0, "There is no fee balance to withdraw");
         //Set balance to 0 
-        uint feesToWithdraw = feeBalance[msg.sender];
+        uint feesToWithdraw = initialFeeBalance;
         feeBalance[msg.sender] = 0;
         //Create log
         emit LogOwnerWithdrawsFees (feesToWithdraw, now);
         //Transer fees to msg.sender
         address(msg.sender).transfer(feesToWithdraw);
     }
-  }
+}

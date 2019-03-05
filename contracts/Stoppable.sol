@@ -16,7 +16,7 @@ contract Stoppable is Owned {
     
     //Constructor, setting initial state upon contract creation
     constructor() public {
-       state = RemittanceState.Operational;
+        state = RemittanceState.Operational;
     }  
     
     //Event logs for when a state changes
