@@ -60,7 +60,7 @@ contract('Remittance', (accounts) => {
       //Obtain gasUsed from receipt
       const gasUsed = withdrawTxReceipt.receipt.gasUsed;
       //Calculate transaction cost
-      const transCost = +gasUsed.toString(10) * +GAS_PRICE.toString(10);
+      const transCost = gasUsed * GAS_PRICE;
       //Checking the transaction event logs
       assert.equal(depositTxReceipt.logs[0].args.sender, depositor, "Fee has not been paid to owner");
       assert.strictEqual(depositTxReceipt.logs[1].args.amount.toString(10), depositAmount.toString(10), "The deposit wasn't successfull");
