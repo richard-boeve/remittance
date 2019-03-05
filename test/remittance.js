@@ -1,12 +1,14 @@
+
 const Remittance = artifacts.require("./Remittance.sol");
 const truffleAssert = require('truffle-assertions');
+const BigNumber = require('bignumber.js');
 
 contract('Remittance', (accounts) => {
 
     let remit;
-    let owner = accounts[1];
-    let depositor = accounts[2];
-    let shopAddress = accounts[3];
+    let owner = accounts[0];
+    let depositor = accounts[1];
+    let shopAddress = accounts[2];
     let plainPassword = "0xaaaaaa";
     let depositAmount = web3.toWei(0.1);
     let EXPIRE_PERIOD = 600;
@@ -17,7 +19,12 @@ contract('Remittance', (accounts) => {
       remit = await Remittance.new({from: owner, gasPrice: GAS_PRICE})
     });
 
+     it("Verify that testing is set up correctly", async () => {
+      assert.strictEqual(true, true, "This should not possibly be wrong");
+    })
+
     it("Deposit - verify that a deposit can be made", async () => {
+      console.log(accounts[1])
       //Create hashed password
       const hashedPassword = await remit.generateHashedPassword(shopAddress, plainPassword);  
       //Check starting balance owner
@@ -30,9 +37,9 @@ contract('Remittance', (accounts) => {
       assert.equal(depositTxReceipt.logs[0].args.sender, depositor, "Fee has not been paid to owner");
       assert.strictEqual(depositTxReceipt.logs[1].args.amount.toString(10), depositAmount.toString(10), "The deposit wasn't successfull");
       //Checking fee balance owner
-      assert.equal(+FEE + +ownerStartingBalance.toString(10), (await remit.feeBalance(owner)).toString(10), "Fee balance is not correct");
+      assert.equal(ownerStartingBalance.plus(FEE), (await remit.feeBalance(owner)).toString(10), "Fee balance is not correct");
       //Checking balance shop
-      assert.equal(+shopStartingBalance + +depositAmount - +FEE, (await remit.deposits(hashedPassword))[2].toString(10), "Deposit balance is not correct");
+      assert.equal(shopStartingBalance.plus(depositAmount - FEE), (await remit.deposits(hashedPassword))[2].toString(10), "Deposit balance is not correct");
     })
 
     it("Deposit - verify that a positive amount must be deposited", async () => {
@@ -59,7 +66,7 @@ contract('Remittance', (accounts) => {
       assert.strictEqual(depositTxReceipt.logs[1].args.amount.toString(10), depositAmount.toString(10), "The deposit wasn't successfull");
       assert.equal(withdrawTxReceipt.logs[0].args.amount.toString(10), +depositAmount - +FEE, "The withdrawn amount is incorrect" )
       //Checking the shop balance blockchain
-      assert.equal(+shopStartingBalance + +depositAmount - +FEE + -transCost, (await web3.eth.getBalance(shopAddress)).toString(10), "The shop balance is incorrect")
+      assert.equal(shopStartingBalance.plus(depositAmount - FEE - transCost), (await web3.eth.getBalance(shopAddress)).toString(10), "The shop balance is incorrect")
       //Checking the shop balance contract
       assert.equal(0, (await remit.deposits(hashedPassword))[2], "The withdrawal has not reset the balance of the shop to 0 in the contract" )
     })
