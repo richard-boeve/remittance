@@ -68,7 +68,7 @@ contract('Remittance', (accounts) => {
       assert.strictEqual(depositTxReceipt.logs[1].args.amount.toString(10), depositAmount.toString(10), "The deposit wasn't successfull");
       assert.strictEqual(withdrawTxReceipt.logs[0].args.amount.toString(10), (depositAmount - FEE).toString(10), "The withdrawn amount is incorrect" )
       //Checking the shop balance blockchain
-      assert.strictEqual((shopStartingBalance.plus(depositAmount).minus(FEE).minus(transCost)).toString(10), (await web3.eth.getBalance(shopAddress)).toString(10), "The shop balance is incorrect")
+      assert.strictEqual(shopStartingBalance.plus(depositAmount).minus(FEE).minus(transCost).toString(10), (await web3.eth.getBalance(shopAddress)).toString(10), "The shop balance is incorrect")
       //Checking the shop balance contract
       assert.equal(0, (await remit.deposits(hashedPassword))[2], "The withdrawal has not reset the balance of the shop to 0 in the contract" )
     })
