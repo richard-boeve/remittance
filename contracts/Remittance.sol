@@ -43,9 +43,9 @@ contract Remittance is Stoppable {
         //Verify that the storage hash hasn't been used before
         require(deposits[_hashedPassword].depositor == address(0), "Password / Shop combination has been used before");
         //Take a fee out of the msg.value 
-        uint256 amount = msg.value - fee;
+        uint256 amount = msg.value.sub(fee);
         //Set expiry
-        uint256 expiry = _expirePeriodInSeconds + now;
+        uint256 expiry = _expirePeriodInSeconds.add(now);
         //Write the arguments to storage
         Deposit storage currentDeposit = deposits[_hashedPassword];
         currentDeposit.depositor = msg.sender;
@@ -112,11 +112,10 @@ contract Remittance is Stoppable {
     //Function that allows any user who is or has been an owner, to withdraw their collected fees
     function ownerWithdrawsFees () public onlyIfNotPaused {
         //write initial fee balance from sender to variable
-        uint256 initialFeeBalance = feeBalance[msg.sender];
+        uint256 feesToWithdraw = feeBalance[msg.sender];
         //Verify there are fees to withdraw
-        require(initialFeeBalance > 0, "There is no fee balance to withdraw");
+        require(feesToWithdraw > 0, "There is no fee balance to withdraw");
         //Set balance to 0 
-        uint feesToWithdraw = initialFeeBalance;
         feeBalance[msg.sender] = 0;
         //Create log
         emit LogOwnerWithdrawsFees (feesToWithdraw, now);
