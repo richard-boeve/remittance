@@ -1,4 +1,4 @@
-pragma solidity 0.4.24;
+pragma solidity 0.5.0;
 
 contract Owned {
     
@@ -26,7 +26,7 @@ contract Owned {
     
     //Function that changes the owner
     function changeOwner(address _newOwner) public onlyOwner {
-        require(_newOwner != 0, "No address provided");
+        require(_newOwner != address(0), "No address provided");
         require(_newOwner != owner, "Current owner can't be new owner");
         owner = _newOwner;
         emit LogChangeOwner(msg.sender, _newOwner);

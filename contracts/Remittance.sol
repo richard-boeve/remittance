@@ -1,4 +1,4 @@
-pragma solidity 0.4.24;
+pragma solidity 0.5.0;
 
 import "./Stoppable.sol";
 import "./SafeMath.sol";
@@ -68,7 +68,7 @@ contract Remittance is Stoppable {
     //Function that allows the passwords to be set - Off chain
     function generateHashedPassword(address _shopAddress, bytes32 _plainPasswordBeneficiary) view public returns (bytes32) {
         //Verify that the shop address can't be null
-        require(_shopAddress != 0, "Shop address is mandatory");
+        require(_shopAddress != address(0), "Shop address is mandatory");
         //Verify that the password can't be null
         require(_plainPasswordBeneficiary != 0, "Benificiary password is mandatory");
         //Hash it all
