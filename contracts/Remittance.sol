@@ -45,7 +45,7 @@ contract Remittance is Stoppable {
         //Take a fee out of the msg.value 
         uint256 amount = msg.value.sub(fee);
         //Set expiry
-        uint256 expiry = _expirePeriodInSeconds.add(now);
+        uint256 expiry = now.add(_expirePeriodInSeconds);
         //Write the arguments to storage
         Deposit storage currentDeposit = deposits[_hashedPassword];
         currentDeposit.depositor = msg.sender;
